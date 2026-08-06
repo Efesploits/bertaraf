@@ -1,0 +1,15 @@
+# Derleme ciktilari
+build/
+dist/
+*.spec
+payload.zip
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Windows
+Thumbs.db
+desktop.ini

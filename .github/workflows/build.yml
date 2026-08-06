@@ -1,0 +1,76 @@
+name: Kurulum dosyasi olustur
+
+# v1.0 gibi bir etiket push edildiginde calisir; ayrica Actions sekmesinden
+# elle de baslatilabilir.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Bagimliliklar
+        run: pip install pydivert pillow pyinstaller
+
+      - name: Testler
+        run: |
+          python test_core.py
+          python test_engine.py
+
+      - name: Simge
+        run: python make_icon.py
+
+      - name: Programi derle
+        run: >
+          pyinstaller --noconfirm --clean --windowed --uac-admin
+          --name "M3sel Bertaraf" --icon m3sel.ico
+          --add-data "m3sel.ico;."
+          --collect-all pydivert
+          m3sel_bertaraf.py
+
+      - name: Programi paketle
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "dist\M3sel Bertaraf\*" -DestinationPath "M3sel-Bertaraf-tasinabilir.zip"
+          Compress-Archive -Path "dist\M3sel Bertaraf\*" -DestinationPath "payload.zip"
+
+      - name: Kurulum dosyasini derle
+        run: >
+          pyinstaller --noconfirm --clean --onefile --windowed --uac-admin
+          --name "M3sel-Bertaraf-Kurulum" --icon m3sel.ico
+          --add-data "payload.zip;."
+          --add-data "m3sel.ico;."
+          installer.py
+
+      - name: Ciktilari yukle
+        uses: actions/upload-artifact@v4
+        with:
+          name: M3sel-Bertaraf
+          path: |
+            dist/M3sel-Bertaraf-Kurulum.exe
+            M3sel-Bertaraf-tasinabilir.zip
+
+      - name: Surum yayinla
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release create "$env:GITHUB_REF_NAME"
+          "dist/M3sel-Bertaraf-Kurulum.exe"
+          "M3sel-Bertaraf-tasinabilir.zip"
+          --title "M3sel Bertaraf $env:GITHUB_REF_NAME"
+          --notes "Kurulum icin **M3sel-Bertaraf-Kurulum.exe** dosyasini indirip calistirin. Kurulum istemiyorsaniz **M3sel-Bertaraf-tasinabilir.zip** dosyasini acip icindeki programi dogrudan calistirabilirsiniz. Her iki durumda da program yonetici yetkisi ister."
