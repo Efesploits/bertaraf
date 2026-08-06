@@ -60,6 +60,19 @@ Sunucuya giden veri **hiç değişmez** — sadece paketlere bölünme şekli de
 
 ---
 
+## Güncelleme
+
+**Güncelle** düğmesi GitHub Releases'teki en son sürümü kontrol eder. Program açılışta
+da sessizce bakar — yeni sürüm yoksa hiçbir şey söylemez.
+
+Yeni sürüm varsa sürüm notlarını ve indirme boyutunu gösterir, onaylarsan kurulum
+dosyasını indirip çalıştırır ve kendini kapatır. Kurulum eski sürümün üstüne yazar,
+ayarların korunur. İndirme adresi yalnızca `github.com` / `githubusercontent.com`
+altındaysa kabul edilir.
+
+Yeni sürüm çıkarmak için: sürüm numarasını `core.py` içindeki `APP_VERSION` alanında
+yükselt, commit'le, `git tag v1.1 && git push origin v1.1` yap. Actions gerisini halleder.
+
 ## Yöntemler
 
 | Yöntem | Ne zaman |
@@ -176,6 +189,7 @@ python -m PyInstaller --noconfirm --clean --windowed --uac-admin --name "M3sel B
 | `test_core.py` | Ayrıştırma testleri |
 | `test_engine.py` | Paket işleme testleri (sahte WinDivert tutamağıyla) |
 | `installer.py` | Kurulum sihirbazı: dosya açma, kısayol, kayıt defteri, kaldırma |
+| `guncelle.py` | Güncelleme kontrolü: Releases'ten sürüm arar, kurulumu indirir |
 | `make_icon.py` | Simge üretici |
 | `.github/workflows/build.yml` | Etiket push'unda derleyip Releases'e yükler |
 

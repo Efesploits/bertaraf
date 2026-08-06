@@ -29,6 +29,7 @@ jobs:
         run: |
           python test_core.py
           python test_engine.py
+          python test_guncelle.py
 
       - name: Simge
         run: python make_icon.py

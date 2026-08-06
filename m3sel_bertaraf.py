@@ -19,9 +19,10 @@ from datetime import datetime
 from tkinter import filedialog, messagebox, ttk
 
 import core
+import guncelle
 
 APP_NAME = "M3sel Bertaraf"
-APP_VERSION = "1.0"
+APP_VERSION = core.APP_VERSION
 CONFIG_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "M3selBertaraf")
 CONFIG_PATH = os.path.join(CONFIG_DIR, "ayarlar.json")
 
@@ -110,6 +111,9 @@ class App(tk.Tk):
 
         if self.var_autostart.get():
             self.after(600, self.start_engine)
+
+        # Acilista sessiz guncelleme kontrolu: yalnizca yeni surum varsa konusur.
+        self.after(3000, lambda: self.check_update(silent=True))
 
     def _set_icon(self) -> None:
         base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
@@ -278,6 +282,9 @@ class App(tk.Tk):
         self.btn_test = ttk.Button(right, text="Teshis", style="Small.TButton",
                                    command=self.run_test)
         self.btn_test.pack(side="left", padx=4)
+        self.btn_update = ttk.Button(right, text="Guncelle", style="Small.TButton",
+                                     command=lambda: self.check_update(False))
+        self.btn_update.pack(side="left", padx=4)
         ttk.Button(right, text="Logu Kaydet", style="Small.TButton",
                    command=self.save_log).pack(side="left", padx=4)
         ttk.Button(right, text="Temizle", style="Small.TButton",
@@ -472,6 +479,78 @@ class App(tk.Tk):
                 self.after(0, lambda: self.btn_test.configure(state="normal"))
 
         threading.Thread(target=work, daemon=True).start()
+
+    # -- guncelleme --------------------------------------------------------
+
+    def check_update(self, silent: bool) -> None:
+        """Yeni surum arar. silent=True ise sadece yeni surum varsa konusur."""
+        if not silent:
+            self.btn_update.configure(state="disabled")
+            self._write("info", "Guncelleme araniyor...")
+
+        def work():
+            rel, msg = guncelle.check()
+            def done():
+                self.btn_update.configure(state="normal")
+                if rel is None:
+                    if not silent:
+                        self._write("dim" if "guncel" in msg else "warn", msg)
+                    return
+                self._write("ok", msg)
+                self._offer_update(rel)
+            self.after(0, done)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _offer_update(self, rel: guncelle.Release) -> None:
+        notes = rel.notes[:400] + ("..." if len(rel.notes) > 400 else "")
+        boyut = f"{rel.size / 1024 / 1024:.1f} MB" if rel.size else "bilinmiyor"
+        if not messagebox.askyesno(
+                APP_NAME,
+                f"Yeni surum var: {rel.tag}\n"
+                f"Kullandiginiz surum: v{APP_VERSION}\n"
+                f"Indirme boyutu: {boyut}\n\n"
+                f"{notes}\n\n"
+                "Kurulum dosyasi indirilip calistirilsin mi?\n"
+                "Program kapanacak ve kurulum penceresi acilacak."):
+            self._write("dim", "Guncelleme iptal edildi.")
+            return
+
+        self.btn_update.configure(state="disabled")
+        self._write("info", f"{rel.tag} indiriliyor...")
+
+        last = [0]
+
+        def progress(got, total):
+            pct = int(got * 100 / total) if total else 0
+            if pct >= last[0] + 10:
+                last[0] = pct
+                self.log_queue.put(("dim", f"  indiriliyor... %{pct}"))
+
+        def work():
+            try:
+                path = guncelle.download(rel, progress)
+            except Exception as exc:
+                self.log_queue.put(("err", f"Indirme basarisiz: {exc}"))
+                self.after(0, lambda: self.btn_update.configure(state="normal"))
+                return
+            self.after(0, lambda: self._launch_installer(path))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _launch_installer(self, path: str) -> None:
+        self._write("ok", f"Indirildi: {path}")
+        self._write("info", "Kurulum baslatiliyor, program kapaniyor...")
+        try:
+            if self.engine.running:
+                self.engine.stop()
+            self._save_config()
+            os.startfile(path)
+        except Exception as exc:
+            self._write("err", f"Kurulum baslatilamadi: {exc}")
+            self.btn_update.configure(state="normal")
+            return
+        self.after(800, self.destroy)
 
     # -- kapanis -----------------------------------------------------------
 
