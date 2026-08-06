@@ -26,7 +26,7 @@ import zipfile
 from tkinter import filedialog, messagebox, ttk
 
 APP_NAME = "M3sel Bertaraf"
-APP_VERSION = "1.0"
+APP_VERSION = "1.1"
 PUBLISHER = "M3sel"
 EXE_NAME = "M3sel Bertaraf.exe"
 UNINST_NAME = "Kaldir.exe"
