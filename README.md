@@ -9,6 +9,8 @@ Türkiye'de Discord'a bağlanamama / mesaj gitmeme / ses kanalına girememe soru
 
 ## Kurulum
 
+**[→ Son sürümü indir](https://github.com/Efesploits/bertaraf/releases/latest)**
+
 Sürümler sayfasından **`M3sel-Bertaraf-Kurulum.exe`** dosyasını indir ve çalıştır.
 Tek dosya, Python gerektirmez.
 
