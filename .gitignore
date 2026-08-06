@@ -1,6 +1,7 @@
 # Derleme ciktilari
 build/
 dist/
+out/
 *.spec
 payload.zip
 

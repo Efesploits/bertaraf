@@ -44,6 +44,14 @@ MODES = [
     ("Hafif (sadece bolme)", "split"),
 ]
 
+FOOLINGS = [
+    ("badsum - bozuk saglama toplami", "badsum"),
+    ("badseq - pencere disi sira no", "badseq"),
+    ("ttl - dusuk yasam suresi", "ttl"),
+]
+
+TEST_HOSTS = ["discord.com", "gateway.discord.gg", "cdn.discordapp.com"]
+
 
 # ---------------------------------------------------------------------------
 # Yonetici yetkisi
@@ -116,8 +124,10 @@ class App(tk.Tk):
 
     def _build_vars(self) -> None:
         self.var_mode = tk.StringVar(value=MODES[0][0])
+        self.var_fooling = tk.StringVar(value=FOOLINGS[0][0])
         self.var_http = tk.BooleanVar(value=True)
         self.var_quic = tk.BooleanVar(value=True)
+        self.var_doh = tk.BooleanVar(value=True)
         self.var_dns = tk.BooleanVar(value=True)
         self.var_dnsaddr = tk.StringVar(value="1.1.1.1")
         self.var_onlylist = tk.BooleanVar(value=False)
@@ -135,8 +145,10 @@ class App(tk.Tk):
         except Exception:
             return
         self.var_mode.set(data.get("mode_label", self.var_mode.get()))
+        self.var_fooling.set(data.get("fooling_label", self.var_fooling.get()))
         self.var_http.set(data.get("http", True))
         self.var_quic.set(data.get("quic", True))
+        self.var_doh.set(data.get("doh", True))
         self.var_dns.set(data.get("dns", True))
         self.var_dnsaddr.set(data.get("dns_server", "1.1.1.1"))
         self.var_onlylist.set(data.get("only_list", False))
@@ -149,8 +161,10 @@ class App(tk.Tk):
             with open(CONFIG_PATH, "w", encoding="utf-8") as fh:
                 json.dump({
                     "mode_label": self.var_mode.get(),
+                    "fooling_label": self.var_fooling.get(),
                     "http": self.var_http.get(),
                     "quic": self.var_quic.get(),
+                    "doh": self.var_doh.get(),
                     "dns": self.var_dns.get(),
                     "dns_server": self.var_dnsaddr.get(),
                     "only_list": self.var_onlylist.get(),
@@ -224,12 +238,20 @@ class App(tk.Tk):
         self.ent_dns = ttk.Entry(panel, textvariable=self.var_dnsaddr, width=14)
         self.ent_dns.grid(row=0, column=3, sticky="w", padx=(0, 14), pady=(12, 6))
 
+        ttk.Label(panel, text="Yanilma", style="Panel.TLabel").grid(
+            row=1, column=0, sticky="w", padx=14, pady=(0, 6))
+        self.cmb_fooling = ttk.Combobox(panel, textvariable=self.var_fooling,
+                                        state="readonly", width=36,
+                                        values=[f[0] for f in FOOLINGS])
+        self.cmb_fooling.grid(row=1, column=1, sticky="w", pady=(0, 6))
+
         checks = tk.Frame(panel, bg=BG_PANEL)
-        checks.grid(row=1, column=0, columnspan=4, sticky="ew", padx=10, pady=(2, 12))
+        checks.grid(row=2, column=0, columnspan=4, sticky="ew", padx=10, pady=(2, 12))
 
         opts = [
             ("HTTP (80) trafigini de isle", self.var_http),
             ("QUIC engelle (UDP/443)", self.var_quic),
+            ("DNS'i DoH ile duzelt", self.var_doh),
             ("DNS'i yonlendir", self.var_dns),
             ("Sadece engelli site listesi", self.var_onlylist),
             ("Ayrintili log", self.var_verbose),
@@ -253,8 +275,9 @@ class App(tk.Tk):
 
         right = ttk.Frame(bar)
         right.grid(row=0, column=2, sticky="e")
-        ttk.Button(right, text="Baglanti Testi", style="Small.TButton",
-                   command=self.run_test).pack(side="left", padx=4)
+        self.btn_test = ttk.Button(right, text="Teshis", style="Small.TButton",
+                                   command=self.run_test)
+        self.btn_test.pack(side="left", padx=4)
         ttk.Button(right, text="Logu Kaydet", style="Small.TButton",
                    command=self.save_log).pack(side="left", padx=4)
         ttk.Button(right, text="Temizle", style="Small.TButton",
@@ -345,8 +368,10 @@ class App(tk.Tk):
     def _collect_settings(self) -> None:
         label = self.var_mode.get()
         self.settings.mode = dict(MODES).get(label, "fake_disorder")
+        self.settings.fooling = dict(FOOLINGS).get(self.var_fooling.get(), "badsum")
         self.settings.handle_http = self.var_http.get()
         self.settings.block_quic = self.var_quic.get()
+        self.settings.doh_fix = self.var_doh.get()
         self.settings.dns_redirect = self.var_dns.get()
         self.settings.dns_server = self.var_dnsaddr.get().strip() or "1.1.1.1"
         self.settings.only_hostlist = self.var_onlylist.get()
@@ -369,7 +394,8 @@ class App(tk.Tk):
             return
 
         self._collect_settings()
-        self._write("info", f"Yontem: {self.var_mode.get()}")
+        self._write("info", f"Yontem: {self.var_mode.get()}  |  "
+                            f"Yanilma: {self.var_fooling.get()}")
         try:
             self.engine.start()
         except Exception as exc:
@@ -402,6 +428,7 @@ class App(tk.Tk):
             self.btn_toggle.configure(text="BASLAT", bg=ACCENT, activebackground=ACCENT_HOVER)
             state = "readonly"
         self.cmb_mode.configure(state=state)
+        self.cmb_fooling.configure(state=state)
         self.ent_dns.configure(state="disabled" if running else "normal")
 
     def _tick(self) -> None:
@@ -415,7 +442,7 @@ class App(tk.Tk):
                 f"Bertaraf edilen baglanti: {s.desynced}   |   "
                 f"Sahte paket: {s.fakes_sent}   |   "
                 f"QUIC dusurulen: {s.quic_dropped}   |   "
-                f"DNS yonlendirilen: {s.dns_redirected}")
+                f"DNS duzeltilen: {s.dns_fixed}")
         else:
             self.var_stats.set("Hazir - baslatmak icin BASLAT'a basin")
         self.after(1000, self._tick)
@@ -423,12 +450,27 @@ class App(tk.Tk):
     # -- test --------------------------------------------------------------
 
     def run_test(self) -> None:
+        """Engelin hangi katmanda oldugunu olcer. Motor kapaliyken calistirip
+        acikken tekrarlamak, programin ise yarayip yaramadigini dogrudan
+        gosterir."""
+        self.btn_test.configure(state="disabled")
+
+        def put(level, msg):
+            self.log_queue.put((level, msg))
+
         def work():
-            self.log_queue.put(("info", "Baglanti testi basliyor..."))
-            for host in ("discord.com", "gateway.discord.gg", "cdn.discordapp.com"):
-                ok, msg = core.quick_check(host)
-                self.log_queue.put(("ok" if ok else "err", "  " + msg))
-            self.log_queue.put(("info", "Test bitti."))
+            state = "ACIK" if self.engine.running else "KAPALI"
+            put("head", f"Teshis basliyor (motor {state}). Bu 20-40 saniye surebilir.")
+            try:
+                core.diagnose_all(TEST_HOSTS, put)
+            except Exception as exc:
+                put("err", f"Teshis basarisiz: {exc}")
+            finally:
+                if not self.engine.running:
+                    put("dim", "Ipucu: simdi BASLAT'a basip teshisi tekrarlayin. "
+                               "Sonuclar degismiyorsa yontemi degistirin.")
+                self.after(0, lambda: self.btn_test.configure(state="normal"))
+
         threading.Thread(target=work, daemon=True).start()
 
     # -- kapanis -----------------------------------------------------------

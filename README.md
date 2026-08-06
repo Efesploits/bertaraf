@@ -45,7 +45,15 @@ gittiğini okuyup bağlantıyı kesiyor. Program bunu şöyle engelliyor:
 | **3. Ters sıra** | İkinci parça önce gönderilir. DPI paketleri birleştirmez, sunucu birleştirir. |
 | **4. Sahte paket** | Önden `www.microsoft.com` SNI'li, geçersiz sıra numaralı sahte bir `ClientHello` atılır. DPI onu kaydeder, sunucu pencere dışı olduğu için sessizce atar. |
 | **5. QUIC engeli** | UDP/443 düşürülür, uygulamalar TCP+TLS'e döner (orayı zaten bertaraf ediyoruz). |
-| **6. DNS** | DNS sorguları operatör sunucusu yerine 1.1.1.1'e yönlendirilir (DNS üzerinden engellemeye karşı). |
+| **6. DNS düzeltme** | Discord alan adlarının gerçek adresleri DNS-over-HTTPS ile alınır; operatörün DNS sorgusuna **biz** doğru cevabı veririz. Operatör 53. portu şeffaf olarak kendine yönlendirse bile zehirli cevap işe yaramaz. |
+
+**Yanılma yöntemi** (sahte paketin sunucuya ulaşmaması için):
+
+| Yöntem | Nasıl |
+|---|---|
+| **badsum** (varsayılan) | TCP sağlama toplamı kasten bozulur. Sunucu paketi atar; DPI'ların çoğu sağlama toplamı kontrol etmez. |
+| **badseq** | Sıra numarası pencere dışına alınır, sunucu yok sayar. |
+| **ttl** | Düşük TTL ile gönderilir, sunucuya varmadan yolda ölür. Mesafe tahmini gerektirir. |
 
 Sunucuya giden veri **hiç değişmez** — sadece paketlere bölünme şekli değişir.
 Şifre çözülmez, trafik başka yere gitmez, proxy/VPN yoktur.
@@ -89,10 +97,30 @@ Aynı anda GoodbyeDPI / zapret / ByeDPI açıktır. Onları kapat. Görev Yönet
 WinDivert imzalı bir ağ sürücüsü ama sansür bypass araçlarında kullanıldığı için bazı
 antivirüsler "riskware" etiketler. Klasörü istisna listesine ekleyin.
 
-**Başlattım, log akıyor ama Discord hâlâ açılmıyor**
-1. Yöntemi değiştir (yukarıdaki sıra).
-2. **Bağlantı Testi** düğmesine bas — üç adres de erişilebilir çıkıyorsa sorun DNS/hesap tarafında.
-3. Discord'un kendi önbelleği: `%appdata%\discord\Cache` klasörünü sil.
+**Başlattım, `bertaraf edildi` yazıyor ama Discord hâlâ açılmıyor**
+
+Bu satır sadece paketi böldüğümüzü söyler — engel DNS veya IP katmanındaysa bölmek
+hiçbir işe yaramaz. Önce **hangi katmanda engellendiğini ölç**:
+
+1. Motor **kapalıyken** **Teşhis** düğmesine bas, sonucu oku.
+2. **BAŞLAT**'a bas, Teşhis'i tekrarla. İkisini karşılaştır.
+
+Teşhis dört sonuçtan birini verir:
+
+| Sonuç | Anlamı | Ne yapmalı |
+|---|---|---|
+| **DNS engeli** | Sistem DNS'i, DoH'un verdiğinden farklı adres döndürüyor (ya da hiç çözemiyor) | **DNS'i DoH ile düzelt** açık olmalı. Açıp motoru yeniden başlat, Teşhis'i tekrarla. |
+| **SNI/DPI engeli** | Aynı IP'ye zararsız SNI ile bağlanılıyor, gerçek SNI ile bağlanılmıyor | Programın çözmesi gereken durum bu. Motor açıkken hâlâ çıkıyorsa **Yöntem** ve **Yanılma** kombinasyonlarını sırayla dene. |
+| **IP engeli** | TCP bağlantısı hiç kurulmuyor | Paket bölme bunu aşamaz. VPN gerekir. |
+| **Erişim var** | Hiçbir katmanda engel yok | Sorun programda değil: Discord'u sistem tepsisinden tamamen kapat, `%appdata%\discord\Cache` klasörünü sil, tekrar aç. |
+
+Deneme sırası (her denemede Discord'u tepsiden tamamen kapatıp aç):
+
+```
+Discord + badsum  →  Discord + badseq  →  Discord + ttl
+Agresif + badsum  →  Agresif + badseq
+Ters bölme        →  Hafif
+```
 
 **İnternet yavaşladı**
 "Sadece engelli site listesi"ni aç. Böylece yalnızca listedeki alan adlarına dokunulur.
