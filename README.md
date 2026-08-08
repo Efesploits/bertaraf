@@ -17,8 +17,33 @@ Tek dosya, Python gerektirmez.
 Kurulum sihirbazı programı `Program Files` altına kurar, masaüstü/Başlat menüsü
 kısayollarını oluşturur, isteğe bağlı olarak Windows açılışında otomatik başlatır
 (yönetici yetkili zamanlanmış görev olarak) ve Denetim Masası > Program Ekle/Kaldır
-listesine ekler. Kaldırmak için oradan kaldır ya da kurulum klasöründeki
-`Kaldir.exe`'yi çalıştır.
+listesine ekler.
+
+## Kaldırma
+
+Denetim Masası > Program Ekle/Kaldır'dan kaldır, ya da kurulum klasöründeki
+**`Kaldir.exe`**'yi çalıştır. Sekiz adımı tek tek raporlar:
+
+| # | Silinen |
+|---|---|
+| 1 | Çalışan program (`taskkill`) |
+| 2 | **WinDivert çekirdek sürücüsü** — `sc stop` + `sc delete` |
+| 3 | Otomatik başlatma görevi (`schtasks`) |
+| 4 | Kısayollar — ortak/kullanıcı masaüstü, OneDrive masaüstü, iki Başlat menüsü |
+| 5 | Program Ekle/Kaldır kaydı (HKLM ve HKCU) |
+| 6 | Ayarlar (`%APPDATA%\M3selBertaraf`) |
+| 7 | Geçici kurulum dosyaları (`%TEMP%`) |
+| 8 | Kurulum klasörünün tamamı |
+
+**2. adım önemli:** WinDivert bir kernel sürücüsü olarak sisteme kayıt olur. Klasörü
+elle silmek onu kaldırmaz — servis kayıtlı kalır ve `sc query WinDivert` hâlâ cevap
+verir. Kaldırıcı bunu ayrıca siliyor. Sürücü o an kullanımdaysa Windows silmeyi
+yeniden başlatmaya erteler; kaldırıcı bunu söyler.
+
+Kaldırıcı kendi klasörünü silemeyeceği için önce `%TEMP%`'e kopyalanıp oradan
+çalışır, iş bitince o kopyayı da siler.
+
+Soru sormadan kaldırmak için: `Kaldir.exe --sessiz`
 
 Kurulum istemiyorsan **`M3sel-Bertaraf-tasinabilir.zip`** dosyasını indir, aç, içindeki
 `M3sel Bertaraf.exe`'ye çift tıkla.
@@ -190,7 +215,8 @@ python -m PyInstaller --noconfirm --clean --windowed --uac-admin --name "M3sel B
 | `core.py` | Motor: TLS/HTTP ayrıştırma, paket bölme, sahte paket, QUIC/DNS |
 | `test_core.py` | Ayrıştırma testleri |
 | `test_engine.py` | Paket işleme testleri (sahte WinDivert tutamağıyla) |
-| `installer.py` | Kurulum sihirbazı: dosya açma, kısayol, kayıt defteri, kaldırma |
+| `installer.py` | Kurulum sihirbazı: dosya açma, kısayol, kayıt defteri |
+| `kaldir.py` | Kaldırıcı: sürücü, görev, kısayol, kayıt, ayar, dosya temizliği |
 | `guncelle.py` | Güncelleme kontrolü: Releases'ten sürüm arar, kurulumu indirir |
 | `make_icon.py` | Simge üretici |
 | `.github/workflows/build.yml` | Etiket push'unda derleyip Releases'e yükler |

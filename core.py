@@ -28,7 +28,7 @@ from pydivert import windivert_dll
 # Sabitler
 # ---------------------------------------------------------------------------
 
-APP_VERSION = "1.1"
+APP_VERSION = "1.2"
 REPO = "Efesploits/bertaraf"
 
 TLS_HANDSHAKE = 0x16

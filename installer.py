@@ -26,7 +26,7 @@ import zipfile
 from tkinter import filedialog, messagebox, ttk
 
 APP_NAME = "M3sel Bertaraf"
-APP_VERSION = "1.1"
+APP_VERSION = "1.2"
 PUBLISHER = "M3sel"
 EXE_NAME = "M3sel Bertaraf.exe"
 UNINST_NAME = "Kaldir.exe"
@@ -93,8 +93,8 @@ def write_registry(install_dir: str, size_kb: int) -> None:
             "Publisher": PUBLISHER,
             "DisplayIcon": exe,
             "InstallLocation": install_dir,
-            "UninstallString": f'"{unins}" --uninstall',
-            "QuietUninstallString": f'"{unins}" --uninstall --sessiz',
+            "UninstallString": f'"{unins}"',
+            "QuietUninstallString": f'"{unins}" --sessiz',
         }
         for name, val in vals.items():
             winreg.SetValueEx(k, name, 0, winreg.REG_SZ, val)
@@ -140,12 +140,12 @@ def install(install_dir: str, desktop: bool, startmenu: bool,
             if i % 40 == 0:
                 progress(15 + int(60 * i / total), f"Dosyalar aciliyor... ({i}/{total})")
 
-    progress(78, "Kaldirici yaziliyor...")
-    try:
-        shutil.copy2(sys.executable if getattr(sys, "frozen", False) else __file__,
-                     os.path.join(install_dir, UNINST_NAME))
-    except Exception:
-        pass
+    # Kaldirici (Kaldir.exe) paketin icinden gelir; ayri ve kucuk bir programdir.
+    progress(78, "Kaldirici kontrol ediliyor...")
+    if not os.path.exists(os.path.join(install_dir, UNINST_NAME)):
+        raise RuntimeError(
+            f"{UNINST_NAME} kurulum paketinde bulunamadi. Kurulum dosyasi bozuk, "
+            "yeniden indirin.")
 
     progress(84, "Kayit defteri girdisi yaziliyor...")
     size_kb = sum(
@@ -179,42 +179,10 @@ def install(install_dir: str, desktop: bool, startmenu: bool,
 
 
 def uninstall(install_dir: str, progress) -> None:
-    progress(10, "Program kapatiliyor...")
-    run_hidden(["taskkill", "/f", "/im", EXE_NAME])
-    time.sleep(0.8)
-
-    progress(30, "Otomatik baslatma gorevi siliniyor...")
-    remove_autostart_task()
-
-    progress(45, "Kisayollar siliniyor...")
-    for path in (
-        os.path.join(os.environ.get("ProgramData", r"C:\ProgramData"), "Microsoft",
-                     "Windows", "Start Menu", "Programs", f"{APP_NAME}.lnk"),
-        os.path.join(os.environ.get("PUBLIC", r"C:\Users\Public"), "Desktop", f"{APP_NAME}.lnk"),
-    ):
-        try:
-            os.remove(path)
-        except OSError:
-            pass
-
-    progress(60, "Kayit defteri girdisi siliniyor...")
-    try:
-        winreg.DeleteKey(winreg.HKEY_LOCAL_MACHINE, REG_KEY)
-    except OSError:
-        pass
-
-    progress(75, "Ayar dosyasi siliniyor...")
-    cfg = os.path.join(os.environ.get("APPDATA", ""), "M3selBertaraf")
-    shutil.rmtree(cfg, ignore_errors=True)
-
-    progress(85, "Dosyalar siliniyor...")
-    for _ in range(10):
-        shutil.rmtree(install_dir, ignore_errors=True)
-        if not os.path.exists(install_dir):
-            break
-        time.sleep(0.5)
-
-    progress(100, "Kaldirma tamamlandi.")
+    """Kaldirma isini kaldir.py'ye devreder; tek bir uygulama olsun diye
+    burada ayri bir kopya tutulmuyor."""
+    import kaldir
+    kaldir.uninstall_all(install_dir, lambda ok, msg, pct: progress(pct, msg))
 
 
 # ---------------------------------------------------------------------------

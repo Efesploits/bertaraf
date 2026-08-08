@@ -30,6 +30,7 @@ jobs:
           python test_core.py
           python test_engine.py
           python test_guncelle.py
+          python test_kaldir.py
 
       - name: Simge
         run: python make_icon.py
@@ -42,9 +43,17 @@ jobs:
           --collect-all pydivert
           m3sel_bertaraf.py
 
+      - name: Kaldiriciyi derle
+        run: >
+          pyinstaller --noconfirm --clean --onefile --windowed --uac-admin
+          --name "Kaldir" --icon m3sel.ico
+          --add-data "m3sel.ico;."
+          kaldir.py
+
       - name: Programi paketle
         shell: pwsh
         run: |
+          Copy-Item "dist\Kaldir.exe" "dist\M3sel Bertaraf\Kaldir.exe"
           Compress-Archive -Path "dist\M3sel Bertaraf\*" -DestinationPath "M3sel-Bertaraf-tasinabilir.zip"
           Compress-Archive -Path "dist\M3sel Bertaraf\*" -DestinationPath "payload.zip"
 
